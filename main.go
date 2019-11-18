@@ -10,13 +10,15 @@ import (
 
 	"github.com/mrxinu/gosolar"
 	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
 )
 
 const version = "0.1.0"
 
 func main() {
-	search := flag.StringP("search", "s", "", "search string")
 	printVersion := flag.BoolP("version", "v", false, "print application version")
+	search := flag.StringP("search", "s", "", "search string")
+	verbs := flag.Bool("verbs", false, "include verbs")
 	flag.Parse()
 
 	if *printVersion {
@@ -35,6 +37,18 @@ func main() {
 
 	client := gosolar.NewClient(hostname, username, password, true)
 
+	if err := printMeta(client, *search); err != nil {
+		log.Fatal(err)
+	}
+
+	if *verbs {
+		if err := printVerbs(client, *search); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func printMeta(client *gosolar.Client, search string) error {
 	query := `
 		SELECT
 			FullName
@@ -48,7 +62,7 @@ func main() {
 	`
 
 	params := map[string]string{
-		"pattern": "%" + *search + "%",
+		"pattern": "%" + search + "%",
 	}
 
 	var rows []struct {
@@ -62,11 +76,11 @@ func main() {
 
 	res, err := client.Query(query, params)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to query")
 	}
 
 	if err := json.Unmarshal(res, &rows); err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to unmarshal")
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -88,4 +102,53 @@ func main() {
 	}
 
 	table.Render()
+
+	return nil
+}
+
+func printVerbs(client *gosolar.Client, search string) error {
+	query := `
+		SELECT
+			EntityName
+			,MethodName
+		FROM Metadata.Verb
+		WHERE EntityName LIKE @pattern
+		AND ISNULL(MethodName, '') != ''
+	`
+
+	params := map[string]string{
+		"pattern": "%" + search + "%",
+	}
+
+	var rows []struct {
+		EntityName string `json:"EntityName,omitempty"`
+		MethodName string `json:"MethodName,omitempty"`
+	}
+
+	res, err := client.Query(query, params)
+	if err != nil {
+		return errors.Wrap(err, "failed to query")
+	}
+
+	if err := json.Unmarshal(res, &rows); err != nil {
+		return errors.Wrap(err, "failed to unmarshal")
+	}
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"EntityName", "MethodName"})
+	table.SetRowLine(true)
+	table.SetAutoWrapText(false)
+
+	for _, r := range rows {
+		tableRow := []string{
+			r.EntityName,
+			r.MethodName,
+		}
+
+		table.Append(tableRow)
+	}
+
+	table.Render()
+
+	return nil
 }
