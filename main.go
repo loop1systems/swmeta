@@ -13,10 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	printVersion := flag.BoolP("version", "v", false, "print application version")
+	hostname := flag.StringP("hostname", "h", "localhost", "SolarWinds hostname")
+	username := flag.StringP("username", "u", "admin", "SolarWinds username")
+	password := flag.StringP("password", "p", "", "SolarWinds password")
 	search := flag.StringP("search", "s", "", "search string")
 	verbs := flag.Bool("verbs", false, "include verbs")
 	flag.Parse()
@@ -26,16 +29,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// check hostname and username; password could be blank
+	if *hostname == "" || *username == "" {
+		fmt.Fprintln(os.Stderr, "Username (-u) and password (-p) are required.")
+		os.Exit(1)
+	}
+
 	if *search == "" {
 		fmt.Fprintln(os.Stderr, "You must provide a search string with the -s option.")
 		os.Exit(1)
 	}
 
-	hostname := "192.168.21.58"
-	username := "apiuser"
-	password := "apiuser151515"
-
-	client := gosolar.NewClient(hostname, username, password, true)
+	client := gosolar.NewClient(*hostname, *username, *password, true)
 
 	if err := printMeta(client, *search); err != nil {
 		log.Fatal(err)
