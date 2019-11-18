@@ -12,9 +12,17 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+const version = "0.1.0"
+
 func main() {
 	search := flag.StringP("search", "s", "", "search string")
+	printVersion := flag.BoolP("version", "v", false, "print application version")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Fprintln(os.Stderr, "version: "+version)
+		os.Exit(1)
+	}
 
 	if *search == "" {
 		fmt.Fprintln(os.Stderr, "You must provide a search string with the -s option.")
